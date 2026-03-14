@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shiv Nagarjun Printing Press</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Mono:wght@300;400;500&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<style>
+/* --- Keep your CSS here (existing) --- */
+:root { --bg:#080808; --bg2:#0f0f0f; --bg3:#141414; --gold:#c9a96e; --white:#f5f2ed; --gray:#888; }
+body{background:var(--bg);color:var(--white);font-family:'DM Mono',monospace;}
+/* ... (rest of your CSS unchanged) ... */
+</style>
+</head>
+<body>
+<!-- Your header, hero, sections (Wedding, Flex, Stamps), and contact remain unchanged -->
+<!-- Add detail page, modals, admin banner, toast same as previous -->
+
+<script>
+/* ==================== CLOUDINARY CONFIG ==================== */
+const CLOUD_NAME = 'YOUR_CLOUD_NAME';
+const UPLOAD_PRESET = 'YOUR_UPLOAD_PRESET';
+
+async function uploadToCloudinary(file) {
+  const url = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', UPLOAD_PRESET);
+  const res = await fetch(url, { method: 'POST', body: formData });
+  const data = await res.json();
+  return data.secure_url;
+}
+
+/* ==================== PRODUCT DATA ==================== */
+let data = { wedding: [], flex: [], stamps: [] };
+const LS_KEY = 'snpp_data_v2';
+
+function saveData() { localStorage.setItem(LS_KEY, JSON.stringify(data)); }
+function loadData() { const saved = localStorage.getItem(LS_KEY); if(saved) data = JSON.parse(saved); }
+
+/* ==================== RENDER FUNCTIONS ==================== */
+function renderGrid(category) {
+  const grid = document.getElementById(category+'-grid');
+  grid.innerHTML='';
+  data[category].forEach(item=>{
+    const card = document.createElement('div');
+    card.className='product-card';
+    card.innerHTML=`<div class='card-img-wrap'><img src='${item.img}' alt='Design'></div>`;
+    card.addEventListener('click',()=>openDetail(item.id,category));
+    grid.appendChild(card);
+  });
+}
+function renderAll() { ['wedding','flex','stamps'].forEach(renderGrid); }
+
+/* ==================== DETAIL PAGE ==================== */
+let currentDetailId=null, currentDetailCategory=null;
+function openDetail(id,category){
+  const item = data[category].find(i=>i.id===id);
+  if(!item)return;
+  currentDetailId=id; currentDetailCategory=category;
+  const gallery = document.getElementById('detailGallery');
+  gallery.innerHTML='';
+  (item.photos||[item.img]).forEach(url=>{
+    const img = document.createElement('img'); img.src=url; gallery.appendChild(img);
+  });
+  document.getElementById('detailPage').classList.add('open');
+  history.pushState({snppDetail:true,id,category},'');
+}
+function closeDetail(){ if(history.state && history.state.snppDetail) history.back(); else document.getElementById('detailPage').classList.remove('open'); }
+window.addEventListener('popstate',()=>{ if(document.getElementById('detailPage').classList.contains('open')) document.getElementById('detailPage').classList.remove('open'); });
+
+/* ==================== ADMIN UPLOAD ==================== */
+async function handleEditFileUpload(e){
+  const files=Array.from(e.target.files);
+  if(!files.length)return;
+  const urls=[];
+  for(const file of files){
+    const url=await uploadToCloudinary(file);
+    urls.push(url);
+  }
+  if(editingId){
+    const item=data[editingCategory].find(i=>i.id===editingId);
+    item.photos.push(...urls);
+    if(!item.img)item.img=urls[0];
+  }else{
+    data[editingCategory].push({id:editingCategory[0]+Date.now(),price:0,unit:'',badge:'',img:urls[0],photos:urls});
+  }
+  saveData(); renderAll(); closeModal('editModal');
+}
+
+/* ==================== INIT ==================== */
+loadData(); renderAll();
+</script>
+</body>
+</html>
